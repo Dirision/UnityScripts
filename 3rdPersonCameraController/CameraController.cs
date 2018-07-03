@@ -8,6 +8,17 @@ public class CameraController : MonoBehaviour {
     public Transform targetTransform;
 
     private Vector3 offset;
+
+
+    /* TODO:
+
+        ADD proper variables for mouse sensitivity (instead of just "5") 
+        ADD toggle so that mouse movement does not move player actor 
+        ADD better smothening to camera (by editing the Lerp call or outright removal of Lerp)
+
+
+    */
+
 	// Use this for initialization
 	void Start () {
 
@@ -25,14 +36,7 @@ public class CameraController : MonoBehaviour {
 
 	}
     
-
-    /// <summary>
-    /// ///////////////////////////////
-    /// 
-    /// 
-    
-    /// </summary>
-
+   
     private void LateUpdate()
     {
 
@@ -54,13 +58,6 @@ public class CameraController : MonoBehaviour {
 
     // Update is called once per frame
     void Update () {
-        //transform.LookAt(targetTransform.transform);
-
-
-        // float hInput = Input.GetAxis("Horizontal");
-        // if (hInput != 0.0f) { transform.Translate(hInput * Time.deltaTime , 0, 0); };
-
-
-    // transform.position = target.transform.position + offset;
+       
     }
 }
