@@ -14,14 +14,22 @@ public class CameraController : MonoBehaviour {
     private Vector3 offset;
 
 
-    /* TODO:
-
-        ADD toggle so that mouse movement does not move player actor 
-        L-> FIX press shift to freelook
-
-        ADD better smothening to camera (by editing the Lerp call or outright removal of Lerp)
-        
-    */
+    /* 
+     * TODO:
+     * 
+     * NEW:
+     * -- TODO checklist :)
+     * -- Shift now turns camera without moving target
+     *
+     * DEBUG/CHECK:
+     * -- Hold shift to turn camera while keeping object still
+     *
+     * ADD
+     * -- Better smothening to camera (by editing the Lerp call or 
+     *    outright removal of Lerp)
+     * -- Better transition when returning from a held shift
+     * -- Option to include y rotation of target when looking up/down
+     */
 
 	// Use this for initialization
 	void Start () {
@@ -49,28 +57,58 @@ public class CameraController : MonoBehaviour {
 
         Quaternion xRotation;
         // Rotate while turning player
-        if (! Input.GetKey(KeyCode.LeftShift))
+        if (!shiftHeld)
         {
+            Debug.Log("Normal");
             float horizontal = Input.GetAxis("Mouse X") * xSensitivity;
             targetTransform.Rotate(0, horizontal, 0);
             float desiredYAngle = targetTransform.eulerAngles.y;
             xRotation = Quaternion.Euler(0, desiredYAngle, 0);
-            transform.position = Vector3.Lerp(targetTransform.position, targetTransform.position - xRotation * offset, orbitDampening);
+            transform.position = Vector3.Slerp(targetTransform.position, targetTransform.position - xRotation * offset, orbitDampening);
 
         }
         else
         {
-            xRotation = Quaternion.Euler(0,Input.GetAxis("Mouse X") * xSensitivity,0);
-
-            transform.position = Vector3.Lerp(targetTransform.position,  targetTransform.position - xRotation* offset, orbitDampening);
+            Debug.Log("Character Lock");
+            float horizontal = Input.GetAxis("Mouse X") * xSensitivity;
+            xRotation = Quaternion.AngleAxis(horizontal , Vector3.up);
+           // offset = xRotation * offset;
+            transform.position = Vector3.Lerp(targetTransform.position,  targetTransform.position - xRotation * offset,  orbitDampening);
         }
         // transform.position = targetTransform.position - (rotation * offset);
         
         transform.LookAt(targetTransform);
     }
 
+    
+    bool shiftHeld = false;
+    Vector3 normalOffset;
+    Vector3 normalPosition; 
     // Update is called once per frame
     void Update () {
-       
+        // Record positions before holding shift 
+        // This is like a similar behavior for how ARMA does head turning 
+        // record offset and position before 
+        if (Input.GetKeyDown(KeyCode.LeftShift))
+        {
+            normalOffset = offset;
+            normalPosition = this.transform.position;
+        }
+        // restore offset and position on lift
+        else if (Input.GetKeyUp(KeyCode.LeftShift))
+        {
+            offset = normalOffset;
+            this.transform.position = normalPosition;
+        }
+        
+        if (Input.GetKey(KeyCode.LeftShift))
+        {
+            Debug.Log("shiftHeld");
+            offset = targetTransform.position - this.transform.position;
+            shiftHeld = true;
+        }
+        else
+            shiftHeld = false; 
+
     }
 }
