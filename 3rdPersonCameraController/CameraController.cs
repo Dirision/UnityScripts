@@ -4,35 +4,47 @@ using UnityEngine;
 
 public class CameraController : MonoBehaviour {
 
-    public Transform cameraTransform;
-    public Transform targetTransform;
-
-
-    public float xSensitivity =5f;
-    public float ySensitivity =5f;
-    public float orbitDampening = 10f;
-    private Vector3 offset;
-
 
     /* 
      * TODO:
      * 
      * NEW:
-     * -- TODO checklist :)
-     * -- Shift now turns camera without moving target
-     *
+     * -- Fixed variable declaration in postUpdate
+     * -- Shift now retains proper Y invert when pressed down and looking around
+     * -- Added boolean in late to avoid camera code if mouse is not moved 
+            For optimization purposes
+     * -- Added a bound for the y movement of the camera
+        |-> needs to remember the yTotalAngle for when shift is held down
+     * 
      * DEBUG/CHECK:
      * -- Hold shift to turn camera while keeping object still
+     * -- Remember total y angle for when shift is held down 
      *
      * ADD
      * -- Better smothening to camera (by editing the Lerp call or 
      *    outright removal of Lerp)
      * -- Better transition when returning from a held shift
      * -- Option to include y rotation of target when looking up/down
+     * 
+     * 
      */
 
-	// Use this for initialization
-	void Start () {
+
+    public Transform cameraTransform;
+    public Transform targetTransform;
+
+    public float yAngleMax = 4f;
+    public float yAngleMin = -4f;
+    public float xSensitivity =5f;
+    public float ySensitivity =5f;
+    public float orbitDampening = 10f;
+
+    // offset of the camera from the target 
+    private Vector3 offset;
+    private float yAngleTotal = 0F;
+
+    // Use this for initialization
+    void Start () {
 
 
         this.cameraTransform = this.transform;
@@ -48,36 +60,54 @@ public class CameraController : MonoBehaviour {
 
 	}
     
+    
+
     private void LateUpdate()
     {
-        Quaternion yRotation =
-                Quaternion.AngleAxis(Input.GetAxis("Mouse Y") * ySensitivity, -Vector3.right);
 
-        offset = yRotation * offset;
-
-        Quaternion xRotation;
-        // Rotate while turning player
-        if (!shiftHeld)
+        if (Input.GetAxis("Mouse X") != 0 || Input.GetAxis("Mouse Y") != 0)
         {
-            Debug.Log("Normal");
-            float horizontal = Input.GetAxis("Mouse X") * xSensitivity;
-            targetTransform.Rotate(0, horizontal, 0);
-            float desiredYAngle = targetTransform.eulerAngles.y;
-            xRotation = Quaternion.Euler(0, desiredYAngle, 0);
-            transform.position = Vector3.Slerp(targetTransform.position, targetTransform.position - xRotation * offset, orbitDampening);
 
-        }
-        else
-        {
-            Debug.Log("Character Lock");
+            
+            yAngleTotal = yAngleTotal + Input.GetAxis("Mouse Y");
+            yAngleTotal = Mathf.Clamp(yAngleTotal, yAngleMin, yAngleMax);
+            Debug.Log("Y Angle Current: " + yAngleTotal.ToString());
+            // Clamping y rotation
+            if (! (yAngleTotal >= yAngleMax || yAngleTotal <= yAngleMin)) { 
+            Quaternion yRotation =
+                    Quaternion.AngleAxis(Input.GetAxis("Mouse Y") * ySensitivity, -Vector3.right);
+
+            offset = yRotation * offset;
+            }
+            
+
             float horizontal = Input.GetAxis("Mouse X") * xSensitivity;
-            xRotation = Quaternion.AngleAxis(horizontal , Vector3.up);
-           // offset = xRotation * offset;
-            transform.position = Vector3.Lerp(targetTransform.position,  targetTransform.position - xRotation * offset,  orbitDampening);
+            Quaternion xRotation;
+            // Rotate while turning player
+            if (!shiftHeld)
+            {
+                Debug.Log("Normal");
+
+                targetTransform.Rotate(0, horizontal, 0);
+                float desiredYAngle = targetTransform.eulerAngles.y;
+                xRotation = Quaternion.Euler(0, desiredYAngle, 0);
+                Vector3 oldPos = transform.position;
+                transform.position = Vector3.Slerp(targetTransform.position, targetTransform.position - xRotation * offset, orbitDampening);
+            }
+            else
+            {
+                Debug.Log("Character Lock");
+
+                xRotation = Quaternion.AngleAxis(horizontal, -Vector3.up);
+                // offset = xRotation * offset;
+                transform.position = Vector3.Lerp(targetTransform.position, targetTransform.position - xRotation * offset, orbitDampening);
+            }
+            // transform.position = targetTransform.position - (rotation * offset);
+
+
+
+            transform.LookAt(targetTransform);
         }
-        // transform.position = targetTransform.position - (rotation * offset);
-        
-        transform.LookAt(targetTransform);
     }
 
     
