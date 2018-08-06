@@ -6,25 +6,23 @@ public class CameraController : MonoBehaviour {
 
 
     /* 
-     * TODO:
      * 
      * NEW:
      * -- Fixed variable declaration in postUpdate
      * -- Shift now retains proper Y invert when pressed down and looking around
-     * -- Added boolean in late to avoid camera code if mouse is not moved 
-            For optimization purposes
-     * -- Added a bound for the y movement of the camera
-        |-> needs to remember the yTotalAngle for when shift is held down
+     * 
+     * TODO:
      * 
      * DEBUG/CHECK:
-     * -- Hold shift to turn camera while keeping object still
-     * -- Remember total y angle for when shift is held down 
-     *
+     * -- Fix Y movement while shift is held down 
+     *  |-> Did a fix that involves changing the axis the camera rotates around, depending on if shift is held. 
+            This needs a serious check / highly volitile / hacky 
+     * -- Weird issue when shift is held down the max y angle changes slightly due to how fast the user is moving the mouse
+        |-> You can force the camera to flip to the other side of the character through this
+     * 
      * ADD
-     * -- Better smothening to camera (by editing the Lerp call or 
-     *    outright removal of Lerp)
-     * -- Better transition when returning from a held shift
-     * -- Option to include y rotation of target when looking up/down
+     * -- Fixes / slight optimizations 
+     * -- Focus target, so we dont have to look directly at the character, but rather at a reticle
      * 
      * 
      */
@@ -42,6 +40,12 @@ public class CameraController : MonoBehaviour {
     // offset of the camera from the target 
     private Vector3 offset;
     private float yAngleTotal = 0F;
+    private bool shiftHeld = false;
+    private float normalYAngleTotal = 0;
+    private Vector3 normalOffset;
+    private Vector3 normalPosition;
+    private float yMovement = 0f;
+    private float xMovement = 0f;
 
     // Use this for initialization
     void Start () {
@@ -65,68 +69,85 @@ public class CameraController : MonoBehaviour {
     private void LateUpdate()
     {
 
-        if (Input.GetAxis("Mouse X") != 0 || Input.GetAxis("Mouse Y") != 0)
+        if (xMovement != 0 || yMovement != 0)
         {
 
             
-            yAngleTotal = yAngleTotal + Input.GetAxis("Mouse Y");
+            yAngleTotal = yAngleTotal + yMovement;
             yAngleTotal = Mathf.Clamp(yAngleTotal, yAngleMin, yAngleMax);
             Debug.Log("Y Angle Current: " + yAngleTotal.ToString());
-            // Clamping y rotation
-            if (! (yAngleTotal >= yAngleMax || yAngleTotal <= yAngleMin)) { 
-            Quaternion yRotation =
-                    Quaternion.AngleAxis(Input.GetAxis("Mouse Y") * ySensitivity, -Vector3.right);
-
-            offset = yRotation * offset;
-            }
             
 
-            float horizontal = Input.GetAxis("Mouse X") * xSensitivity;
+            float horizontal = xMovement * xSensitivity;
             Quaternion xRotation;
             // Rotate while turning player
             if (!shiftHeld)
             {
                 Debug.Log("Normal");
+                if (!(yAngleMin >= yAngleTotal || yAngleTotal >= yAngleMax))
+                {
+
+                    Quaternion yRotation =
+                            Quaternion.AngleAxis(yMovement * ySensitivity, -Vector3.right);
+
+                    offset = yRotation * offset;
+                }
 
                 targetTransform.Rotate(0, horizontal, 0);
-                float desiredYAngle = targetTransform.eulerAngles.y;
-                xRotation = Quaternion.Euler(0, desiredYAngle, 0);
-                Vector3 oldPos = transform.position;
+                float desiredXAngle = targetTransform.eulerAngles.y;
+                xRotation = Quaternion.Euler(0, desiredXAngle, 0);
+
                 transform.position = Vector3.Slerp(targetTransform.position, targetTransform.position - xRotation * offset, orbitDampening);
             }
+            // Rotate, keep the players direction
             else
             {
                 Debug.Log("Character Lock");
+                if (!(yAngleMin >= yAngleTotal || yAngleTotal >= yAngleMax))
+                {
 
-                xRotation = Quaternion.AngleAxis(horizontal, -Vector3.up);
-                // offset = xRotation * offset;
+                    Quaternion yRotation =
+                            Quaternion.AngleAxis(yMovement * ySensitivity, -transform.right);
+
+                    offset = yRotation * offset;
+                }
+
+                xRotation = Quaternion.AngleAxis(horizontal,Vector3.up);
                 transform.position = Vector3.Lerp(targetTransform.position, targetTransform.position - xRotation * offset, orbitDampening);
+
             }
             // transform.position = targetTransform.position - (rotation * offset);
 
-
+           
 
             transform.LookAt(targetTransform);
         }
     }
 
     
-    bool shiftHeld = false;
-    Vector3 normalOffset;
-    Vector3 normalPosition; 
+   
     // Update is called once per frame
     void Update () {
+
+
+        yMovement = Input.GetAxis("Mouse Y");
+        xMovement = Input.GetAxis("Mouse X");
+
+
         // Record positions before holding shift 
         // This is like a similar behavior for how ARMA does head turning 
         // record offset and position before 
+
         if (Input.GetKeyDown(KeyCode.LeftShift))
         {
+            normalYAngleTotal = yAngleTotal;
             normalOffset = offset;
             normalPosition = this.transform.position;
         }
         // restore offset and position on lift
         else if (Input.GetKeyUp(KeyCode.LeftShift))
         {
+            yAngleTotal = normalYAngleTotal;
             offset = normalOffset;
             this.transform.position = normalPosition;
         }
@@ -134,11 +155,17 @@ public class CameraController : MonoBehaviour {
         if (Input.GetKey(KeyCode.LeftShift))
         {
             Debug.Log("shiftHeld");
+
+            // Why set offset on shift held
             offset = targetTransform.position - this.transform.position;
             shiftHeld = true;
         }
         else
-            shiftHeld = false; 
+            shiftHeld = false;
+
+        Debug.DrawRay(transform.position, transform.right, Color.red);
+        Debug.DrawRay(transform.position, transform.up, Color.green);
+
 
     }
 }
